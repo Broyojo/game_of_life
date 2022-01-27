@@ -5,13 +5,15 @@ enum Cell {
 }
 
 struct Game<const W: usize, const H: usize> {
-    grid: [[Cell; H]; W],
+    front_buf: [[Cell; H]; W],
+    back_buf: [[Cell; H]; W],
 }
 
 impl<const W: usize, const H: usize> Game<W, H> {
     fn new() -> Self {
         Game {
-            grid: [[Cell::Dead; H]; W],
+            front_buf: [[Cell::Dead; H]; W],
+            back_buf: [[Cell::Dead; H]; W],
         }
     }
 
@@ -37,7 +39,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
                 continue;
             }
 
-            match self.grid[ni as usize][nj as usize] {
+            match self.front_buf[ni as usize][nj as usize] {
                 Cell::Alive => total += 1,
                 Cell::Dead => {}
             }
@@ -46,23 +48,22 @@ impl<const W: usize, const H: usize> Game<W, H> {
     }
 
     fn update(&mut self) {
-        let mut buf = [[Cell::Dead; H]; W];
         for i in 0..W {
             for j in 0..H {
-                match (&self.grid[i][j], self.count_neighbors(i, j)) {
-                    (Cell::Alive, 2 | 3) => buf[i][j] = Cell::Alive,
-                    (Cell::Dead, 3) => buf[i][j] = Cell::Alive,
-                    (_, _) => {}
+                match (&self.front_buf[i][j], self.count_neighbors(i, j)) {
+                    (Cell::Alive, 2 | 3) => self.back_buf[i][j] = Cell::Alive,
+                    (Cell::Dead, 3) => self.back_buf[i][j] = Cell::Alive,
+                    _ => self.back_buf[i][j] = Cell::Dead,
                 }
             }
         }
-        self.grid = buf;
+        self.front_buf = self.back_buf;
     }
 
     fn show(&self) {
         for i in 0..W {
             for j in 0..H {
-                match self.grid[i][j] {
+                match self.front_buf[i][j] {
                     Cell::Alive => print!("#"),
                     Cell::Dead => print!("."),
                 }
@@ -73,7 +74,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
     }
 
     fn set(&mut self, x: usize, y: usize, state: Cell) {
-        self.grid[x][y] = state;
+        self.front_buf[x][y] = state;
     }
 }
 
@@ -87,7 +88,7 @@ fn main() {
         game.show();
         game.update();
         count += 1;
-        if count == 5 {
+        if count == 10_000 {
             break;
         }
     }
