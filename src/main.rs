@@ -1,8 +1,7 @@
 use rand::{thread_rng, Rng};
 use std::{
-    fs,
+    env, fs,
     io::{self, Write},
-    mem,
     ops::{Index, IndexMut},
     thread, time,
 };
@@ -54,7 +53,7 @@ impl Game {
         }
     }
 
-    fn from(path: &str, padding: usize) -> Self {
+    fn from(path: &String, padding: usize) -> Self {
         // load .cells file
         // find the rows and columns for the grid
         // fill new grid from file
@@ -163,18 +162,16 @@ impl Game {
 }
 
 fn main() {
-    let mut game = Game::from("glider_gun.cells", 10);
-    println!("starting game: {} x {}", game.rows, game.cols);
-    //game.load_cells("glider_gun.cells".into());
-    // game.set(5, 3, Cell::Alive);
-    // game.set(5, 4, Cell::Alive);
-    // game.set(5, 5, Cell::Alive);
+    let args = env::args().collect::<Vec<String>>();
+    let mut game = Game::from(&args[1], 10);
+    println!("starting game {}: {} x {}", args[0], game.rows, game.cols);
+
     let mut count = 0;
     loop {
         game.show();
         game.update();
         count += 1;
-        if count == 10_000 {
+        if count == 100_000 {
             break;
         }
         thread::sleep(time::Duration::from_millis(100));
