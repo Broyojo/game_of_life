@@ -1,19 +1,101 @@
+use rand::{thread_rng, Rng};
+use std::{
+    fs,
+    io::{self, Write},
+    mem,
+    ops::{Index, IndexMut},
+    thread, time,
+};
+
 #[derive(Clone, Copy, Debug)]
 enum Cell {
     Alive,
     Dead,
 }
 
-struct Game<const W: usize, const H: usize> {
-    front_buf: [[Cell; H]; W],
-    back_buf: [[Cell; H]; W],
+#[derive(Debug, Clone)]
+struct Grid(Vec<Vec<Cell>>);
+
+impl Grid {
+    fn new(rows: usize, cols: usize) -> Self {
+        let vs = vec![vec![Cell::Dead; cols]; rows];
+        Grid(vs)
+    }
 }
 
-impl<const W: usize, const H: usize> Game<W, H> {
-    fn new() -> Self {
+impl Index<usize> for Grid {
+    type Output = Vec<Cell>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl IndexMut<usize> for Grid {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.0[index]
+    }
+}
+
+struct Game {
+    rows: usize,
+    cols: usize,
+    front_buf: Grid,
+    back_buf: Grid,
+}
+
+impl Game {
+    fn new(rows: usize, cols: usize) -> Self {
         Game {
-            front_buf: [[Cell::Dead; H]; W],
-            back_buf: [[Cell::Dead; H]; W],
+            rows,
+            cols,
+            front_buf: Grid::new(rows, cols),
+            back_buf: Grid::new(rows, cols),
+        }
+    }
+
+    fn from(path: &str, padding: usize) -> Self {
+        // load .cells file
+        // find the rows and columns for the grid
+        // fill new grid from file
+
+        let file = fs::read_to_string(path).expect("could not read file");
+
+        let rows = file.lines().count() + padding * 2;
+
+        let cols = if let Some(line) = file.lines().max_by(|x, y| x.len().cmp(&y.len())) {
+            line.len() + padding * 2
+        } else {
+            0
+        };
+
+        let mut front_buf = Grid::new(rows, cols);
+
+        for (i, line) in file.lines().enumerate() {
+            for (j, chr) in line.chars().enumerate() {
+                if chr == 'O' {
+                    front_buf[i + padding][j + padding] = Cell::Alive;
+                }
+            }
+        }
+
+        Game {
+            rows,
+            cols,
+            front_buf,
+            back_buf: Grid::new(rows, cols),
+        }
+    }
+
+    fn fill_random(&mut self) {
+        for i in 0..self.rows {
+            for j in 0..self.cols {
+                self.front_buf[i][j] = if thread_rng().gen_range(0..2) == 0 {
+                    Cell::Alive
+                } else {
+                    Cell::Dead
+                };
+            }
         }
     }
 
@@ -35,7 +117,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
             let ni = i as i32 - di;
             let nj = j as i32 - dj;
 
-            if ni < 0 || nj < 0 || ni >= H as i32 || nj >= W as i32 {
+            if ni < 0 || nj < 0 || ni >= self.rows as i32 || nj >= self.cols as i32 {
                 continue;
             }
 
@@ -48,8 +130,8 @@ impl<const W: usize, const H: usize> Game<W, H> {
     }
 
     fn update(&mut self) {
-        for i in 0..W {
-            for j in 0..H {
+        for i in 0..self.rows {
+            for j in 0..self.cols {
                 match (&self.front_buf[i][j], self.count_neighbors(i, j)) {
                     (Cell::Alive, 2 | 3) => self.back_buf[i][j] = Cell::Alive,
                     (Cell::Dead, 3) => self.back_buf[i][j] = Cell::Alive,
@@ -57,32 +139,36 @@ impl<const W: usize, const H: usize> Game<W, H> {
                 }
             }
         }
-        self.front_buf = self.back_buf;
+        // fix this
+        self.front_buf = self.back_buf.clone();
     }
 
     fn show(&self) {
-        for i in 0..W {
-            for j in 0..H {
+        io::stdout().flush().expect("could not flush");
+        print!("{}[2J", 27 as char); // clear screen
+        for i in 0..self.rows {
+            for j in 0..self.cols {
                 match self.front_buf[i][j] {
-                    Cell::Alive => print!("#"),
+                    Cell::Alive => print!("O"),
                     Cell::Dead => print!("."),
                 }
             }
             println!();
         }
-        println!();
     }
 
-    fn set(&mut self, x: usize, y: usize, state: Cell) {
-        self.front_buf[x][y] = state;
+    fn set(&mut self, i: usize, j: usize, state: Cell) {
+        self.front_buf[i][j] = state;
     }
 }
 
 fn main() {
-    let mut game = Game::<10, 10>::new();
-    game.set(5, 3, Cell::Alive);
-    game.set(5, 4, Cell::Alive);
-    game.set(5, 5, Cell::Alive);
+    let mut game = Game::from("glider_gun.cells", 10);
+    println!("starting game: {} x {}", game.rows, game.cols);
+    //game.load_cells("glider_gun.cells".into());
+    // game.set(5, 3, Cell::Alive);
+    // game.set(5, 4, Cell::Alive);
+    // game.set(5, 5, Cell::Alive);
     let mut count = 0;
     loop {
         game.show();
@@ -91,5 +177,6 @@ fn main() {
         if count == 10_000 {
             break;
         }
+        thread::sleep(time::Duration::from_millis(100));
     }
 }
