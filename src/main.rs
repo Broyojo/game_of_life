@@ -163,7 +163,14 @@ impl Game {
 
 fn main() {
     let args = env::args().collect::<Vec<String>>();
-    let mut game = Game::from(&args[1], 10);
+    let mut game = if args.len() == 1 {
+        let mut g = Game::new(30, 30);
+        g.fill_random();
+        g
+    } else {
+        Game::from(&args[1], 10)
+    };
+
     println!("starting game {}: {} x {}", args[0], game.rows, game.cols);
 
     let mut count = 0;
