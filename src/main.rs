@@ -1,7 +1,8 @@
-use rand::{thread_rng, Rng};
+use rand;
 use std::{
     env, fs,
     io::{self, Write},
+    mem,
     ops::{Index, IndexMut},
     thread, time,
 };
@@ -89,7 +90,7 @@ impl Game {
     fn fill_random(&mut self) {
         for i in 0..self.rows {
             for j in 0..self.cols {
-                self.front_buf[i][j] = if thread_rng().gen_range(0..2) == 0 {
+                self.front_buf[i][j] = if rand::random() {
                     Cell::Alive
                 } else {
                     Cell::Dead
@@ -138,8 +139,7 @@ impl Game {
                 }
             }
         }
-        // fix this
-        self.front_buf = self.back_buf.clone();
+        mem::swap(&mut self.front_buf, &mut self.back_buf);
     }
 
     fn show(&self) {
@@ -148,8 +148,8 @@ impl Game {
         for i in 0..self.rows {
             for j in 0..self.cols {
                 match self.front_buf[i][j] {
-                    Cell::Alive => print!("O"),
-                    Cell::Dead => print!("."),
+                    Cell::Alive => print!("O "),
+                    Cell::Dead => print!(". "),
                 }
             }
             println!();
@@ -178,9 +178,9 @@ fn main() {
         game.show();
         game.update();
         count += 1;
-        if count == 100_000 {
+        if count == 10_000 {
             break;
         }
-        thread::sleep(time::Duration::from_millis(100));
+        thread::sleep(time::Duration::from_millis(50));
     }
 }
